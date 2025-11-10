@@ -1,0 +1,71 @@
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, Flatten
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.applications import VGG16
+base = VGG16(
+    weights = "vgg16_weights_tf_dim_ordering_tf_kernels_notop.h5",
+    include_top = False,
+    input_shape=(224,224,3)
+)
+for layer in base.layers:
+    layer.trainable = False
+selected_classes = ['airplanes', 'ant']
+img_generator = ImageDataGenerator(
+    brightness_range=(0.5,1),
+    channel_shift_range=0.2,
+    horizontal_flip=True,
+    vertical_flip=True,
+    rescale = 1./255,
+    validation_split=0.3
+)
+train_data = img_generator.flow_from_directory(
+    directory="caltech-101-img", target_size=(224,224),
+    batch_size=32,subset='training', classes=selected_classes
+)
+
+val_data = img_generator.flow_from_directory(
+    directory="caltech-101-img", target_size=(224,224),
+    batch_size= 32, subset='validation', classes = selected_classes
+)
+model = Sequential([
+    base,
+    Flatten(),
+    Dense(256,activation='relu'),
+    Dropout(0.2),
+    Dense(256,activation='relu'),
+    Dropout(0.4),
+    Dense(2, activation='softmax')
+])
+
+model.compile(
+    optimizer='adam',
+    loss = "categorical_crossentropy",
+    metrics = ["accuracy"]
+)
+
+model.summary()
+model.fit(train_data, validation_data=val_data,epochs=5)
+loss, accuracy = model.evaluate(val_data)
+print(f"Validation Loss : {loss:.4f}")
+print(f"Validation Accuracy : {accuracy:.4f}")
+import numpy as np
+import matplotlib.pyplot as plt
+
+images, labels = next(val_data)
+
+predictions = model.predict(images)
+predicted_classes = np.argmax(predictions,axis=1)
+true_classes = np.argmax(labels,axis=1)
+
+plt.figure(figsize=(15,10))
+for i in range(9):
+    plt.subplot(3,3,i+1)    
+    plt.imshow(images[i])
+    plt.title(f"True: {selected_classes[true_classes[i]]}\n Pred: {selected_classes[predicted_classes[i]]}")
+    plt.axis('off')
+plt.tight_layout()
+plt.show()
+
+correct = np.sum(predicted_classes == true_classes)
+print(f"\nBatch Accuracy: {correct}/{len(images)} = {correct/len(images)*100:.2f}%")
+

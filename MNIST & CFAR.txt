@@ -1,0 +1,138 @@
+# ============================================
+# LAB PRACTICE - IV (Deep Learning)
+# Experiment: Neural Network on MNIST & CIFAR-10
+# Subject Code: 414447
+# ============================================
+
+# a) Import required libraries
+from sklearn.preprocessing import LabelBinarizer
+from sklearn.metrics import classification_report
+
+from tensorflow.keras import models, layers, optimizers, datasets, backend as K
+import matplotlib.pyplot as plt
+import numpy as np
+
+# --------------------------------------------
+# PART 1: MNIST DATASET
+# --------------------------------------------
+
+# c) Grab the MNIST dataset
+(x_train, y_train), (x_test, y_test) = datasets.mnist.load_data()
+
+print("MNIST Dataset Loaded")
+print("Training data shape:", x_train.shape)
+print("Testing data shape:", x_test.shape)
+
+# d) Flatten the dataset
+x_train = x_train.reshape((x_train.shape[0], 28 * 28))
+x_test = x_test.reshape((x_test.shape[0], 28 * 28))
+
+# e) Normalize the data
+x_train = x_train.astype("float32") / 255.0
+x_test = x_test.astype("float32") / 255.0
+
+# f) Convert labels to one-hot encoding
+lb = LabelBinarizer()
+y_train = lb.fit_transform(y_train)
+y_test = lb.transform(y_test)
+
+# g) Define Neural Network Architecture
+model = models.Sequential()
+model.add(layers.Dense(128, activation='sigmoid', input_shape=(784,)))
+model.add(layers.Dense(64, activation='sigmoid'))
+model.add(layers.Dense(10, activation='softmax'))
+
+# h) Compile and Train the model
+opt = optimizers.SGD(learning_rate=0.01)
+model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
+
+history = model.fit(x_train, y_train, epochs=10, batch_size=128, validation_split=0.2, verbose=1)
+
+# i) Predict classes
+y_pred = model.predict(x_test)
+y_pred_classes = np.argmax(y_pred, axis=1)
+y_true_classes = np.argmax(y_test, axis=1)
+
+# j) Plot training and validation accuracy/loss
+plt.figure(figsize=(12,5))
+
+plt.subplot(1,2,1)
+plt.plot(history.history['accuracy'], label='Train Accuracy')
+plt.plot(history.history['val_accuracy'], label='Val Accuracy')
+plt.title('Accuracy')
+plt.legend()
+
+plt.subplot(1,2,2)
+plt.plot(history.history['loss'], label='Train Loss')
+plt.plot(history.history['val_loss'], label='Val Loss')
+plt.title('Loss')
+plt.legend()
+
+plt.show()
+
+# k) Calculate Precision, Recall, F1-Score, Support
+print("Classification Report (MNIST):")
+print(classification_report(y_true_classes, y_pred_classes))
+
+
+# --------------------------------------------
+# PART 2: CIFAR-10 DATASET
+# --------------------------------------------
+
+# c) Grab the CIFAR-10 dataset
+(x_train, y_train), (x_test, y_test) = datasets.cifar10.load_data()
+
+print("CIFAR-10 Dataset Loaded")
+print("Training data shape:", x_train.shape)
+print("Testing data shape:", x_test.shape)
+
+# d) Flatten the dataset
+x_train = x_train.reshape((x_train.shape[0], 32 * 32 * 3))
+x_test = x_test.reshape((x_test.shape[0], 32 * 32 * 3))
+
+# e) Normalize the data
+x_train = x_train.astype("float32") / 255.0
+x_test = x_test.astype("float32") / 255.0
+
+# f) One-hot encode labels
+lb = LabelBinarizer()
+y_train = lb.fit_transform(y_train)
+y_test = lb.transform(y_test)
+
+# g) Neural Network Architecture
+model_cifar = models.Sequential()
+model_cifar.add(layers.Dense(512, activation='sigmoid', input_shape=(32*32*3,)))
+model_cifar.add(layers.Dense(256, activation='sigmoid'))
+model_cifar.add(layers.Dense(10, activation='softmax'))
+
+# h) Compile and Train the model
+opt = optimizers.SGD(learning_rate=0.01)
+model_cifar.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
+
+history_cifar = model_cifar.fit(x_train, y_train, epochs=10, batch_size=128, validation_split=0.2, verbose=1)
+
+# i) Predictions
+y_pred_cifar = model_cifar.predict(x_test)
+y_pred_classes_cifar = np.argmax(y_pred_cifar, axis=1)
+y_true_classes_cifar = np.argmax(y_test, axis=1)
+
+# j) Plot training and validation accuracy/loss
+plt.figure(figsize=(12,5))
+
+plt.subplot(1,2,1)
+plt.plot(history_cifar.history['accuracy'], label='Train Accuracy')
+plt.plot(history_cifar.history['val_accuracy'], label='Val Accuracy')
+plt.title('Accuracy (CIFAR-10)')
+plt.legend()
+
+plt.subplot(1,2,2)
+plt.plot(history_cifar.history['loss'], label='Train Loss')
+plt.plot(history_cifar.history['val_loss'], label='Val Loss')
+plt.title('Loss (CIFAR-10)')
+plt.legend()
+
+plt.show()
+
+# k) Classification report
+print("Classification Report (CIFAR-10):")
+print(classification_report(y_true_classes_cifar, y_pred_classes_cifar))

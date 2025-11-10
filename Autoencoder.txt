@@ -1,0 +1,206 @@
+import numpy as np
+import pandas as pd
+import tensorflow as tf
+from tensorflow.keras import models, layers, optimizers
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
+
+df = pd.read_csv("/content/ecg_autoencoder_dataset.csv", on_bad_lines='skip')
+
+df.head()
+
+print("Shape : " ,df.shape)
+
+features = df.iloc[:,:-1].values
+target = df.iloc[:,-1].values
+
+# Identify rows where target is NaN
+nan_in_target = np.isnan(target)
+
+# Remove rows with NaN in target from both features and target
+features = features[~nan_in_target]
+target = target[~nan_in_target]
+
+
+print(features[0])
+print(target[0])
+
+X_train, X_test, Y_train, Y_test = train_test_split(
+    features, target, test_size=0.2, stratify=target,random_state=42
+)
+
+print("Training features shape : ", X_train.shape)
+print("Training labels shape : ", Y_train.shape)
+print("Test features shape : " , X_test.shape)
+print("Test labels shape : " , Y_test.shape)
+
+x_train_normal = X_train[Y_train == 1]
+print("Normal class training samples : ", x_train_normal.shape)
+
+scaler = MinMaxScaler()
+x_train_scaled = scaler.fit_transform(x_train_normal)
+x_test_scaled = scaler.transform(X_test)
+
+class AutoEncoder(models.Model):
+  def __init__(self, output_units):
+      super().__init__()
+
+      self.encoder = models.Sequential([
+          layers.Dense(64, activation='relu'),
+          layers.Dense(32, activation='relu'),
+          layers.Dense(16, activation='relu'),
+          layers.Dense(8, activation='relu')
+      ])
+
+      self.decoder = models.Sequential([
+          layers.Dense(16,activation='relu'),
+          layers.Dense(32,activation='relu'),
+          layers.Dense(64,activation='relu'),
+          layers.Dense(output_units, activation='sigmoid')
+      ])
+
+  def call(self, inputs):
+    encoded = self.encoder(inputs)
+    decoded = self.decoder(encoded)
+    return decoded
+
+model = AutoEncoder(output_units=x_train_scaled.shape[1])
+model.compile(loss='msle',metrics=['mse'], optimizer='adam')
+
+history = model.fit(
+    x_train_scaled,
+    x_train_scaled,
+    epochs=100,
+    batch_size=32,
+    validation_data=(x_test_scaled, x_test_scaled),
+    verbose=1
+)
+
+plt.figure(figsize=(8,5))
+plt.plot(history.history['loss'],label='Training loss')
+plt.plot(history.history['val_loss'],label='Validation loss')
+plt.title("Loss vs Epochs")
+plt.xlabel("Epochs")
+plt.ylabel("MSLE Loss")
+plt.legend()
+plt.show()
+
+def find_threshold(model, x_train_scaled):
+  reconstructions = model.predict(x_train_scaled)
+  reconstruction_errors = tf.keras.losses.msle(reconstructions , x_train_scaled)
+  threshold = np.mean(reconstruction_errors.numpy() + np.std(reconstruction_errors.numpy()))
+  return threshold
+
+threshold = find_threshold(model, x_train_scaled)
+print("Anomaly Detection Threshold : " ,threshold)
+
+reconstructions = model.predict(x_test_scaled)
+reconstruction_errors = tf.keras.losses.msle(reconstructions, x_test_scaled)
+y_pred = np.where(reconstruction_errors > threshold,0,1)
+
+accuracy = accuracy_score(Y_test,y_pred)
+print("Model Accuracy : ", accuracy)
+
+df_2 = pd.read_csv("/content/creditcard.csv")
+
+df_2.head()
+
+# Step 3: Feature and target split
+features = df_2.drop(['Class', 'Time'], axis=1).values
+target = df_2['Class'].values
+
+# Identify rows where target is NaN
+nan_in_target = np.isnan(target)
+
+# Remove rows with NaN in target from both features and target
+features = features[~nan_in_target]
+target = target[~nan_in_target]
+
+
+# Step 4: Split dataset into train/test
+x_train, x_test, y_train, y_test = train_test_split(
+    features, target, test_size=0.2, stratify=target, random_state=42
+)
+
+print("Training data shape:", x_train.shape)
+print("Test data shape:", x_test.shape)
+
+
+x_train[0]
+
+x_train_normal = x_train[y_train == 0]
+print("Normal class training samples:", x_train_normal.shape)
+
+scaler = MinMaxScaler()
+x_train_scaled = scaler.fit_transform(x_train_normal)
+x_test_scaled = scaler.transform(x_test)
+
+class AutoEncoder(models.Model):
+  def __init__(self, output_units):
+      super().__init__()
+
+      self.encoder = models.Sequential([
+          layers.Dense(64, activation='relu'),
+          layers.Dense(32, activation='relu'),
+          layers.Dense(16, activation='relu'),
+          layers.Dense(8, activation='relu')
+      ])
+
+      self.decoder = models.Sequential([
+          layers.Dense(16,activation='relu'),
+          layers.Dense(32,activation='relu'),
+          layers.Dense(64,activation='relu'),
+          layers.Dense(output_units, activation='sigmoid')
+      ])
+
+  def call(self, inputs):
+    encoded = self.encoder(inputs)
+    decoded = self.decoder(encoded)
+    return decoded
+
+model = AutoEncoder(output_units=x_train_scaled.shape[1])
+model.compile(loss='msle',metrics=['mse'], optimizer='adam')
+
+history = model.fit(
+    x_train_scaled,
+    x_train_scaled,
+    epochs=10,
+    batch_size=32,
+    validation_data=(x_test_scaled, x_test_scaled),
+    verbose=1
+)
+
+
+# Step 9: Plot training and validation loss
+plt.figure(figsize=(8,5))
+plt.plot(history.history['loss'], label='Training Loss')
+plt.plot(history.history['val_loss'], label='Validation Loss')
+plt.title("Loss vs Epochs")
+plt.xlabel("Epochs")
+plt.ylabel("MSLE Loss")
+plt.legend()
+plt.show()
+
+
+# Step 10: Compute threshold based on reconstruction error
+def find_threshold(model, x_train_scaled):
+    reconstructions = model.predict(x_train_scaled)
+    reconstruction_errors = tf.keras.losses.msle(reconstructions, x_train_scaled)
+    threshold = np.mean(reconstruction_errors.numpy()) + np.std(reconstruction_errors.numpy())
+    return threshold
+
+threshold = find_threshold(model, x_train_scaled)
+print("Threshold for anomaly detection:", threshold)
+
+
+# Step 11: Predict anomalies
+reconstructions = model.predict(x_test_scaled)
+reconstruction_errors = tf.keras.losses.msle(reconstructions, x_test_scaled)
+y_pred = np.where(reconstruction_errors > threshold, 1, 0)  # 1 = anomaly (fraud), 0 = normal
+
+
+# Step 12: Evaluate performance
+print("Accuracy:", accuracy_score(y_test, y_pred))
+
